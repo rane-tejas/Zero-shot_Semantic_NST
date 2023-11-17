@@ -10,7 +10,8 @@ Repository for "Zero-shot Semantic Neural Style Transfer for Images", course pro
 
 2. Create conda environment and activate it
     ```bash
-    conda create --name ENV_NAME --file requirements.txt
+    conda create --name ENV_NAME python=3.11
+    pip install -r requirements.txt
     conda activate ENV_NAME
     ```
 
