@@ -62,6 +62,8 @@ def setup_args():
 
     parser.add_argument("-c", "--content_path", type=str, default="data/content/c1.jpg",
                         help="Path to a single content img")
+    parser.add_argument("-m", "--mask_path", type=str, default="",
+                        help="Path to a single mask img")
     parser.add_argument("-s", "--style_path", type=str, default="data/style/vg_starry_night.jpg",
                         help="Path to a single style img")
     parser.add_argument("--checkpoint_path", type=str, default="ckpt",
