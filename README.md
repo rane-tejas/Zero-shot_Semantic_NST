@@ -25,12 +25,26 @@ Repository for "Zero-shot Semantic Neural Style Transfer for Images", course pro
 
 4. Run the following command:
 
-    ```bash
-    python infer.py --content_path CONTENT_PATH --style_path STYLE_PATH --resize
-    ```
+    - To perform style transfer on the entire image in a zero-shot manner, use the following command:
 
-    Example:
+        ```bash
+        python infer.py --content_path CONTENT_PATH --style_path STYLE_PATH --resize --keep_ratio
+        ```
 
-    ```bash
-    python infer.py --content_path data/content/c1.jpg --style_path data/style/candy.jpg --resize
-    ```
+        Example:
+
+        ```bash
+        python infer.py --content_path data/content/c1.jpg --style_path data/style/candy.jpg --resize --keep_ratio
+        ```
+
+    - To perform style transfer on a specific region of the image (semantic segmented mask), use the following command:
+
+        ```bash
+        python infer.py --content_path CONTENT_PATH --style_path STYLE_PATH --mask_path MASK_PATH --resize --keep_ratio
+        ```
+
+        Example:
+
+        ```bash
+        python infer.py --content_path data/content/room.jpg --style_path data/style/candy.jpg --mask_path data/mask/room/blue_seats.jpg --resize --keep_ratio
+        ```

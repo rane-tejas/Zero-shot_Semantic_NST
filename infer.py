@@ -1,9 +1,6 @@
 import cv2
-import numpy as np
-
 import torch
-import torch.nn as nn
-import torch.nn.functional
+import numpy as np
 
 from utils import *
 from models.decoder import Decoder
@@ -23,6 +20,8 @@ class StyleTransfer:
 
         self.style_img = None
         self.style_mask = None
+
+        self.seg_mask = None
 
         self.image_encoder = Encoder().to(DEVICE)
         self.decoder = Decoder().to(DEVICE)
@@ -50,15 +49,17 @@ class StyleTransfer:
         for p in self.ada_attn_3.parameters():
             p.requires_grad = False
 
-    def load_images(self, content_path, style_path, resize=False, keep_ratio=False):
+    def load_images(self, content_path, mask_path, style_path, resize=True, keep_ratio=True):
 
         self.content_img = cv2.imread(content_path)
         self.content_shape = self.content_img.shape[:2]
         self.style_img = cv2.imread(style_path)
 
+        if mask_path:
+            self.seg_mask = cv2.imread(mask_path)//255
+
         ######################### Manually creating masks #########################
-        _mask = np.zeros_like(self.content_img)
-        _mask = cv2.circle(_mask, (int(_mask.shape[1]/2), int(_mask.shape[0]/2)), 100, (255, 255, 255), -1)
+        _mask = np.ones_like(self.content_img)*255
         self.content_mask = np.expand_dims(_mask.transpose()[0], axis=2)
         _mask = np.ones_like(self.style_img)*255
         self.style_mask = np.expand_dims(_mask.transpose()[0], axis=2)
@@ -68,9 +69,9 @@ class StyleTransfer:
             self.content_img = resize_img(self.content_img, 512, keep_ratio)
             self.style_img = resize_img(self.style_img, 512, keep_ratio)
 
-    def run(self, content_path, style_path, checkpoint_path, resize=False, keep_ratio=False):
+    def run(self, content_path, mask_path, style_path, checkpoint_path, resize=True, keep_ratio=True):
 
-        self.load_images(content_path, style_path, resize, keep_ratio)
+        self.load_images(content_path, mask_path, style_path, resize, keep_ratio)
         self.build_models(checkpoint_path)
 
         with torch.no_grad():
@@ -90,12 +91,16 @@ class StyleTransfer:
 
         if resize:
             cs = cv2.resize(cs, (self.content_shape[1], self.content_shape[0]))
+            self.content_img = cv2.resize(self.content_img, (self.content_shape[1], self.content_shape[0]))
+
+        if mask_path:
+            cs = cs * self.seg_mask + self.content_img * (1 - self.seg_mask)
 
         return cs
 
 
 if __name__ == '__main__':
     args = setup_args()
-    result = StyleTransfer().run(args.content_path, args.style_path, args.checkpoint_path, args.resize, args.keep_ratio)
+    result = StyleTransfer().run(args.content_path, args.mask_path, args.style_path, args.checkpoint_path, args.resize, args.keep_ratio)
     cv2.imshow("result", result)
     cv2.waitKey(0)

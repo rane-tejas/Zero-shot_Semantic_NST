@@ -1,6 +1,7 @@
 # Repo specific
 ckpt/
 output/
+dataset/
 examples/
 
 
