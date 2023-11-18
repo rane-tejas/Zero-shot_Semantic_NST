@@ -1,9 +1,6 @@
 import cv2
-import numpy as np
-
 import torch
-import torch.nn as nn
-import torch.nn.functional
+import numpy as np
 
 from utils import *
 from models.decoder import Decoder
@@ -23,6 +20,9 @@ class StyleTransfer:
 
         self.style_img = None
         self.style_mask = None
+
+        self.unmasked_content = None
+        self.result_mask = None
 
         self.image_encoder = Encoder().to(DEVICE)
         self.decoder = Decoder().to(DEVICE)
@@ -58,7 +58,10 @@ class StyleTransfer:
 
         ######################### Manually creating masks #########################
         _mask = np.zeros_like(self.content_img)
-        _mask = cv2.circle(_mask, (int(_mask.shape[1]/2), int(_mask.shape[0]/2)), 100, (255, 255, 255), -1)
+        self.result_mask = cv2.circle(_mask, (int(_mask.shape[1]/2), int(_mask.shape[0]/2)), 100, (1, 1, 1), -1)
+        self.unmasked_content = self.content_img * (1 - self.result_mask)
+
+        _mask = np.ones_like(self.content_img)*255
         self.content_mask = np.expand_dims(_mask.transpose()[0], axis=2)
         _mask = np.ones_like(self.style_img)*255
         self.style_mask = np.expand_dims(_mask.transpose()[0], axis=2)
@@ -91,7 +94,8 @@ class StyleTransfer:
         if resize:
             cs = cv2.resize(cs, (self.content_shape[1], self.content_shape[0]))
 
-        return cs
+        result = self.result_mask * cs + self.unmasked_content
+        return result
 
 
 if __name__ == '__main__':
