@@ -101,6 +101,6 @@ class StyleTransfer:
 
 if __name__ == '__main__':
     args = setup_args()
-    result = StyleTransfer().run(args.content_path, args.mask_path, args.style_path, args.checkpoint_path, args.resize, args.keep_ratio)
-    cv2.imshow("result", result)
-    cv2.waitKey(0)
+    result = StyleTransfer().run(args.content_path, args.style_path, args.checkpoint_path, args.resize, args.keep_ratio)
+    cv2.imwrite("result.png", result)
+    # cv2.waitKey(0)
