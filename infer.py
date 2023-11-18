@@ -21,8 +21,7 @@ class StyleTransfer:
         self.style_img = None
         self.style_mask = None
 
-        self.unmasked_content = None
-        self.result_mask = None
+        self.seg_mask = None
 
         self.image_encoder = Encoder().to(DEVICE)
         self.decoder = Decoder().to(DEVICE)
@@ -57,8 +56,7 @@ class StyleTransfer:
         self.style_img = cv2.imread(style_path)
 
         if mask_path:
-            self.result_mask = cv2.imread(mask_path)//255
-            self.unmasked_content = self.content_img * (1 - self.result_mask)
+            self.seg_mask = cv2.imread(mask_path)//255
 
         ######################### Manually creating masks #########################
         _mask = np.ones_like(self.content_img)*255
@@ -93,9 +91,10 @@ class StyleTransfer:
 
         if resize:
             cs = cv2.resize(cs, (self.content_shape[1], self.content_shape[0]))
+            self.content_img = cv2.resize(self.content_img, (self.content_shape[1], self.content_shape[0]))
 
         if mask_path:
-            cs = cs * self.result_mask + self.unmasked_content
+            cs = cs * self.seg_mask + self.content_img * (1 - self.seg_mask)
 
         return cs
 
