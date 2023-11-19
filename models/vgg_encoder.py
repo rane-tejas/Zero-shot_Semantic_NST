@@ -85,7 +85,7 @@ class Encoder(nn.Module):
 # The state dict from the original code uses this messed up structure
 ######################################
 
-class Encoder(nn.Module):
+class FaltuEncoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
