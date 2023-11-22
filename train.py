@@ -1,14 +1,14 @@
 import cv2
 import torch
 import numpy as np
-from torch.utils.data import Dataset,DataLoader
+
+from torch.utils.data import DataLoader
 
 from utils import *
 from models.decoder import Decoder
 from models.vgg_encoder import Encoder
 from models.AdaAttN import AdaAttN, Transformer
-from dataloader import StyleTransferDataset
-
+from datasets import PhraseCutDataset
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -43,7 +43,7 @@ if __name__=="__main__":
 
     batch_size=2
 
-    dataset = StyleTransferDataset("./dataset/PhraseCut_mod")
+    dataset = PhraseCutDataset("./dataset/PhraseCut_mod")
     dataloader = DataLoader(dataset,batch_size,shuffle=True)
 
     for batch in dataloader:
@@ -62,8 +62,3 @@ if __name__=="__main__":
 
         
         break
-
-
-
-
-

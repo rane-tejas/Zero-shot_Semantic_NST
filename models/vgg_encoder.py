@@ -85,9 +85,9 @@ class Encoder(nn.Module):
 # The state dict from the original code uses this messed up structure
 ######################################
 
-class FaltuEncoder(nn.Module):
+class ATA_Encoder(nn.Module):
     def __init__(self):
-        super(Encoder, self).__init__()
+        super(ATA_Encoder, self).__init__()
 
         self.model = nn.Sequential(
             nn.Conv2d(3, 3, (1, 1)),
