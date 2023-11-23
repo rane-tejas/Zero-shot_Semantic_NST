@@ -48,15 +48,18 @@ def mean_variance_norm(feat):
     normalized_feat = (feat - mean.expand(size)) / std.expand(size)
     return normalized_feat
 
-def get_key(feats, last_layer_idx):
-    results = []
-    _, _, h, w = feats[last_layer_idx].shape
-    for i in range(last_layer_idx):
-        results.append(mean_variance_norm(nn.functional.interpolate(feats[i], (h, w))))
-    results.append(mean_variance_norm(feats[last_layer_idx]))
-    return torch.cat(results, dim=1)
+def get_key(feats, last_layer_idx, need_shallow=True):
+    if need_shallow and last_layer_idx > 0:
+        results = []
+        _, _, h, w = feats[last_layer_idx].shape
+        for i in range(last_layer_idx):
+            results.append(mean_variance_norm(nn.functional.interpolate(feats[i], (h, w))))
+        results.append(mean_variance_norm(feats[last_layer_idx]))
+        return torch.cat(results, dim=1)
+    else:
+        return mean_variance_norm(feats[last_layer_idx])
 
-def setup_args():
+def setup_args(train=False):
 
     parser = argparse.ArgumentParser()
 
@@ -75,5 +78,9 @@ def setup_args():
                             "of the model and may yield better performance")
     parser.add_argument("--keep_ratio", action='store_true',
                         help="Whether keep the aspect ratio of original images while resizing")
+    
+    if train:
+        # TODO: Add hyperparams
+        pass
 
     return parser.parse_args()

@@ -13,7 +13,7 @@ from models.AdaAttN import AdaAttN, Transformer
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-class StyleTransfer:
+class InferStyleTransfer:
 
     def __init__(self):
 
@@ -85,24 +85,14 @@ class StyleTransfer:
         self.load_images_from_dataset(content_path, mask_path)
         self.build_models(checkpoint_path)
 
-        ######################### Manually creating masks #########################
-        _mask = np.ones_like(self.content_img)*255
-        _content_mask = np.expand_dims(_mask.transpose()[0], axis=2)
-        _mask = np.ones_like(self.style_img)*255
-        _style_mask = np.expand_dims(_mask.transpose()[0], axis=2)
-        ###########################################################################
-
         with torch.no_grad():
             style = img_to_tensor(cv2.cvtColor(padding(self.style_img, 32), cv2.COLOR_BGR2RGB)).to(DEVICE)
             content = img_to_tensor(cv2.cvtColor(padding(self.content_img, 32), cv2.COLOR_BGR2RGB)).to(DEVICE)
-            c_masks = [torch.from_numpy(padding(_content_mask, 32)).unsqueeze(0).permute(0, 3, 1, 2).float().to(DEVICE)]
-            s_masks = [torch.from_numpy(padding(_style_mask, 32)).unsqueeze(0).permute(0, 3, 1, 2).float().to(DEVICE)]
             c_feats = self.image_encoder(content)
             s_feats = self.image_encoder(style)
-            c_adain_feat_3 = self.ada_attn_3(c_feats[2], s_feats[2], get_key(c_feats, 2), get_key(s_feats, 2), None,
-                                        c_masks, s_masks)
+            c_adain_feat_3 = self.ada_attn_3(c_feats[2], s_feats[2], get_key(c_feats, 2), get_key(s_feats, 2))
             cs = self.transformer(c_feats[3], s_feats[3], c_feats[4], s_feats[4], get_key(c_feats, 3), get_key(s_feats, 3),
-                             get_key(c_feats, 4), get_key(s_feats, 4), None, c_masks, s_masks)
+                             get_key(c_feats, 4), get_key(s_feats, 4))
             cs = self.decoder(cs, c_adain_feat_3)
             cs = tensor_to_img(cs[:, :, :int(self.content_shape[0]), :int(self.content_shape[1])])
             cs = cv2.cvtColor(cs, cv2.COLOR_RGB2BGR)
@@ -119,6 +109,6 @@ class StyleTransfer:
 
 if __name__ == '__main__':
     args = setup_args()
-    result = StyleTransfer().run(args.content_path, args.mask_path, args.style_path, args.checkpoint_path, args.resize, args.keep_ratio)
+    result = InferStyleTransfer().run(args.content_path, args.mask_path, args.style_path, args.checkpoint_path, args.resize, args.keep_ratio)
     cv2.imwrite("output/result.png", result)
     # cv2.waitKey(0)

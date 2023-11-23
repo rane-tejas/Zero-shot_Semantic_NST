@@ -5,7 +5,8 @@ from utils import *
 
 torch.manual_seed(42)
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cpu")
 
 class LossFunctions:
 
@@ -15,32 +16,34 @@ class LossFunctions:
         self.lambda_global = lambda_global
         self.lambda_local = lambda_local
         self.criterion = nn.MSELoss().to(DEVICE)
+        self.max_sample = 64 * 64 # TODO
 
-    def compute_content_loss(self, stylized_feats):
-        self.loss_content = torch.tensor(0., device=self.device)
+    def content_loss(self, stylized_feats, content_feats):
+        loss = torch.tensor(0., device=DEVICE)
         if self.lambda_content > 0:
             for i in range(1, 5):
-                self.loss_content += self.criterion(mean_variance_norm(stylized_feats[i]),
-                                                       mean_variance_norm(self.c_feats[i]))
+                loss += self.criterion(mean_variance_norm(stylized_feats[i]),
+                                                       mean_variance_norm(content_feats[i]))
+        return loss
 
-    def compute_style_loss(self, stylized_feats):
-        self.loss_global = torch.tensor(0., device=self.device)
+    def style_loss(self, stylized_feats, content_feats, style_feats):
+        loss_global = torch.tensor(0., device=DEVICE)
         if self.lambda_global > 0:
             for i in range(1, 5):
-                s_feats_mean, s_feats_std = calc_mean_std(self.s_feats[i])
+                s_feats_mean, s_feats_std = calc_mean_std(style_feats[i])
                 stylized_feats_mean, stylized_feats_std = calc_mean_std(stylized_feats[i])
-                self.loss_global += self.criterion(
+                loss_global += self.criterion(
                     stylized_feats_mean, s_feats_mean) + self.criterion(stylized_feats_std, s_feats_std)
-        self.loss_local = torch.tensor(0., device=self.device)
+        loss_local = torch.tensor(0., device=DEVICE)
         if self.lambda_local > 0:
             for i in range(1, 5):
-                c_key = self.get_key(self.c_feats, i, self.opt.shallow_layer)
-                s_key = self.get_key(self.s_feats, i, self.opt.shallow_layer)
-                s_value = self.s_feats[i]
+                c_key = get_key(content_feats, i, need_shallow=True)
+                s_key = get_key(style_feats, i, need_shallow=True)
+                s_value = style_feats[i]
                 b, _, h_s, w_s = s_key.size()
                 s_key = s_key.view(b, -1, h_s * w_s).contiguous()
                 if h_s * w_s > self.max_sample:
-                    index = torch.randperm(h_s * w_s).to(self.device)[:self.max_sample]
+                    index = torch.randperm(h_s * w_s).to(DEVICE)[:self.max_sample]
                     s_key = s_key[:, :, index]
                     style_flat = s_value.view(b, -1, h_s * w_s)[:, :, index].transpose(1, 2).contiguous()
                 else:
@@ -57,4 +60,6 @@ class LossFunctions:
                 # mean, std: b, c, h, w
                 mean = mean.view(b, h_c, w_c, -1).permute(0, 3, 1, 2).contiguous()
                 std = std.view(b, h_c, w_c, -1).permute(0, 3, 1, 2).contiguous()
-                self.loss_local += self.criterion(stylized_feats[i], std * mean_variance_norm(self.c_feats[i]) + mean)
+                loss_local += self.criterion(stylized_feats[i], std * mean_variance_norm(content_feats[i]) + mean)
+
+        return loss_global + loss_local

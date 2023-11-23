@@ -1,64 +1,83 @@
 import cv2
 import torch
 import numpy as np
+import ipdb
 
 from torch.utils.data import DataLoader
 
 from utils import *
 from models.decoder import Decoder
-from models.vgg_encoder import Encoder
+from models.vgg_encoder import ATA_Encoder
 from models.AdaAttN import AdaAttN, Transformer
 from datasets import PhraseCutDataset
+from losses import LossFunctions
 
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+torch.manual_seed(42)
+
+# DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+DEVICE = torch.device('cpu')
 
 
-class StyleTransferModel(nn.Module):
+class TrainStyleTransfer():
 
     def __init__(self):
-        super(StyleTransferModel,self).__init__()
-        self.encoder = Encoder()
-        self.transformer = Transformer(in_planes=512, key_planes=512 + 256 + 128 + 64)
-        self.decoder = Decoder()
+
+        # TODO: pass args asn hyperparams
+
+        self.encoder = ATA_Encoder().to(DEVICE)
+        self.ada_attn_3 = AdaAttN(in_planes=256, key_planes=256 + 128 + 64, max_sample=64 * 64).to(DEVICE)
+        self.transformer = Transformer(in_planes=512, key_planes=512 + 256 + 128 + 64).to(DEVICE)
+        self.decoder = Decoder().to(DEVICE)
+        self.loss = LossFunctions()
     
-    def forward(self,content_img,style_img):
+    def train(self):
+            
+            dataset = PhraseCutDataset("./dataset/PhraseCut_mod")
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+            parameters = []
+            parameters.extend(list(self.ada_attn_3.parameters()))
+            parameters.extend(list(self.transformer.parameters()))
+            parameters.extend(list(self.decoder.parameters()))
+            optimizer = torch.optim.Adam(parameters, lr=0.001)
+    
+            for epoch in range(1):
+                for batch in dataloader:
+    
+                    content_images = batch[0].to(DEVICE)
+                    style_images = batch[1].to(DEVICE)
+    
+                    print(content_images.shape)
+                    print(style_images.shape)
 
-        content_embedding = self.encoder(content_img)
-        style_embedding = self.encoder(style_img)
+                    optimizer.zero_grad()
 
-        transformer_output = self.transformer(content_embedding,style_embedding)
+                    content_features = self.encoder(content_images)
+                    style_features = self.encoder(style_images)
+                    c_adain_feat_3 = self.ada_attn_3(content_features[2], style_features[2], get_key(content_features, 2), get_key(style_features, 2))
+                    cs = self.transformer(content_features[3], style_features[3], content_features[4], style_features[4], get_key(content_features, 3), get_key(style_features, 3),
+                             get_key(content_features, 4), get_key(style_features, 4))
+                    cs = self.decoder(cs, c_adain_feat_3)
 
-        styled_image = self.decoder(transformer_output)
+                    enc_cs = self.encoder(cs)
 
 
+                    content_loss = self.loss.content_loss(enc_cs, content_features)
+                    style_loss = self.loss.style_loss(enc_cs, content_features, style_features)
+                    import ipdb; ipdb.set_trace()
 
+                    loss = content_loss + style_loss
+    
+                    loss.backward()
+                    optimizer.step()
+
+            print("Loss: ", loss.item())
 
 
 if __name__=="__main__":
+    
+    # TODO:
+    # 1. Setup training args (hyperparams)
+    # 2. 
 
-    model = StyleTransferModel()
-    model.train()
-
-    model.to(DEVICE)
-
-    batch_size=2
-
-    dataset = PhraseCutDataset("./dataset/PhraseCut_mod")
-    dataloader = DataLoader(dataset,batch_size,shuffle=True)
-
-    for batch in dataloader:
-
-        content_images = batch[0]
-        style_images = batch[1]
-
-        print(content_images.shape)
-        print(style_images.shape)
-
-        ## Model Pass
-        ## Encoder 
-        ## Compute loss
-        ## Loss backward
-        ## Optimizer step
-
-        
-        break
+    train_instance = TrainStyleTransfer()
+    train_instance.train()

@@ -16,7 +16,8 @@ class PhraseCutDataset(Dataset):
         super(PhraseCutDataset, self).__init__()
 
         self.data_dir = data_dir
-        self.resize = transforms.Resize(512, antialias=None)
+        self.resize = transforms.Resize((512, 512), antialias=None)
+        #TODO: Add change listdir to glob
         self.content_image_list = natsorted(os.listdir(os.path.join(self.data_dir, "content")))
         self.style_image_list = natsorted(os.listdir(os.path.join(self.data_dir, "style")))
 
