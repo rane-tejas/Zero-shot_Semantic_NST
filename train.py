@@ -1,5 +1,6 @@
 import os
 import cv2
+import time
 import torch
 import numpy as np
 
@@ -122,6 +123,7 @@ class TrainStyleTransfer():
         for epoch in range(num_epochs):
             _loss = 0.0
             _avg_loss = 0.0
+            _start = time.time()
 
             for batch in train_dataloader:
 
@@ -133,10 +135,11 @@ class TrainStyleTransfer():
 
             _avg_loss = _avg_loss / _train_batches
             print(f'Epoch {epoch}, Average Training Loss: {_avg_loss}')
-            self._logger.log(tag='train', epoch=epoch, loss=_avg_loss)
+            self._logger.log(tag='train', epoch=epoch, loss=_avg_loss, time=(time.time()-_start))
 
             _loss = 0.0
             _avg_loss = 0.0
+            _start = time.time()
 
             for batch in val_dataloader:
 
@@ -148,7 +151,7 @@ class TrainStyleTransfer():
 
             _avg_loss = _avg_loss / _val_batches
             print(f'Epoch {epoch}, Average Validation Loss: {_avg_loss}')
-            self._logger.log(tag='val', epoch=epoch, loss=_avg_loss)
+            self._logger.log(tag='val', epoch=epoch, loss=_avg_loss, time=(time.time()-_start))
 
             if max_loss > _avg_loss:
                 print('Saving best model')
@@ -158,8 +161,9 @@ class TrainStyleTransfer():
                 torch.save(self.transformer.state_dict(), self.ckpt_path+'/transformer.pth')
                 torch.save(self.decoder.state_dict(), self.ckpt_path+'/decoder.pth')
 
+            self._logger.log(tag='plot')
+        
         print('Training complete')
-        self._logger.log(tag='plot')
 
 
 if __name__=="__main__":

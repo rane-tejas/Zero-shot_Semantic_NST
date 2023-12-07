@@ -139,11 +139,11 @@ class Logger:
 
         elif tag == 'train':
             self.train_data.append([kwargs['loss']])
-            self.log_file.write(f'Epoch: {kwargs["epoch"]} Train Loss: {kwargs["loss"]}\n')
+            self.log_file.write(f'Epoch: {kwargs["epoch"]} \t Train Loss: {kwargs["loss"]} \t Avg Time: {kwargs["time"]} secs\n')
 
         elif tag == 'val':
             self.val_data.append([kwargs['loss']])
-            self.log_file.write(f'Epoch: {kwargs["epoch"]} Val Loss: {kwargs["loss"]}\n')
+            self.log_file.write(f'Epoch: {kwargs["epoch"]} \t Val Loss: {kwargs["loss"]} \t Avg Time: {kwargs["time"]} secs\n')
 
         elif tag == 'plot':
             self.plot(self.train_data, name='Train Loss', path=self.plot_dir)
