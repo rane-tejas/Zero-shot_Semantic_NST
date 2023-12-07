@@ -85,7 +85,7 @@ def train_args():
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-d", "--data_path", type=str, default="dataset/PhraseCut_mod",
+    parser.add_argument("-d", "--dataset_path", type=str, default="dataset/PhraseCut_mod",
                         help="Path to the dataset")
     parser.add_argument("-c", "--checkpoint_path", type=str, default="ckpt/pretrained",
                         help="Path to the checkpoint drectory")
@@ -109,16 +109,22 @@ def train_args():
 class Logger:
 
     import os
+    import time
     import matplotlib.pyplot as plt
 
     def __init__(self, log_dir):
         self.log_dir = log_dir
         if not self.os.path.exists(log_dir):
-            self.os.mkdir(log_dir)
+            self.os.makedirs(log_dir)
 
-        self.plot_dir = self.os.mkdir(self.os.path.join(log_dir, 'plots'))
+        self.plot_dir = self.os.path.join(log_dir, 'plots')
+        if not self.os.path.exists(self.plot_dir):
+            self.os.mkdir(self.plot_dir)
         self.log_file_path = self.log_dir + '/logs.txt'
+        self.log_file = open(self.log_file_path, 'w')
+        self.log_file.write('Logs date and time: '+self.time.strftime("%d-%m-%Y %H:%M:%S")+'\n\n')
         self.log_file = open(self.log_file_path, 'a')
+
 
         self.train_data = []
         self.val_data = []
@@ -129,14 +135,14 @@ class Logger:
             self.log_file.write('Training Args:\n')
             for k, v in kwargs.items():
                 self.log_file.write(str(k)+': '+str(v)+'\n')
-            self.log_file.write('#########################################################\n')
+            self.log_file.write('#########################################################\n\n')
 
         elif tag == 'train':
-            self.train_data.append([kwargs['epoch'], kwargs['loss']])
+            self.train_data.append([kwargs['loss']])
             self.log_file.write(f'Epoch: {kwargs["epoch"]} Train Loss: {kwargs["loss"]}\n')
 
         elif tag == 'val':
-            self.val_data.append([kwargs['epoch'], kwargs['loss']])
+            self.val_data.append([kwargs['loss']])
             self.log_file.write(f'Epoch: {kwargs["epoch"]} Val Loss: {kwargs["loss"]}\n')
 
         elif tag == 'plot':
@@ -150,3 +156,4 @@ class Logger:
         self.plt.ylabel(name)
         self.plt.title(name+' vs. Epochs')
         self.plt.savefig(self.os.path.join(path, name+'.png'), dpi=1200 ,bbox_inches='tight')
+        self.plt.close()

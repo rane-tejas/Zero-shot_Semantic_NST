@@ -1,4 +1,5 @@
 # Repo specific
+logs/
 ckpt/
 output/
 dataset/

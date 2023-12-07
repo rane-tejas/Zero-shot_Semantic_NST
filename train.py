@@ -109,13 +109,13 @@ class TrainStyleTransfer():
 
         self.optimizer = torch.optim.Adam(self.parameters, lr=self.lr, weight_decay=self.weight_decay)
 
-        # _avg_loss = 0.0
         _train_batches = len(train_dataloader)
         _val_batches = len(val_dataloader)
         max_loss = 1e9
 
         self._logger.log(tag='args', lr=self.lr, weight_decay=self.weight_decay,
-                         dataset_path=dataset_path, checkpoint_path=self.checkpoint_path, num_epochs=num_epochs, batch_size=batch_size)
+                         dataset_path=dataset_path, checkpoint_path=self.checkpoint_path, num_epochs=num_epochs, batch_size=batch_size,
+                         total_train_images=(_train_batches*batch_size), total_val_images=(_val_batches*batch_size))
 
         print('Starting training...')
 
@@ -153,9 +153,10 @@ class TrainStyleTransfer():
             if max_loss > _avg_loss:
                 print('Saving best model')
                 max_loss = _avg_loss
-                torch.save(self.ada_attn_3.state_dict(), self.log_path+'/adaattn.pth')
-                torch.save(self.transformer.state_dict(), self.log_path+'/transformer.pth')
-                torch.save(self.decoder.state_dict(), self.log_path+'/decoder.pth')
+                torch.save(self.encoder.state_dict(), self.ckpt_path+'/encoder.pth')
+                torch.save(self.ada_attn_3.state_dict(), self.ckpt_path+'/adaattn.pth')
+                torch.save(self.transformer.state_dict(), self.ckpt_path+'/transformer.pth')
+                torch.save(self.decoder.state_dict(), self.ckpt_path+'/decoder.pth')
 
         print('Training complete')
         self._logger.log(tag='plot')
@@ -163,7 +164,7 @@ class TrainStyleTransfer():
 
 if __name__=="__main__":
 
-    args = infer_args()
+    args = train_args()
 
-    train_instance = TrainStyleTransfer(args.checkpoint_path, args.log_path, args.lr, args.weight_decay)
+    train_instance = TrainStyleTransfer(args.checkpoint_path, args.log_dir+args.log_name, args.lr, args.weight_decay)
     train_instance.train(args.dataset_path, args.num_epochs, args.batch_size)
