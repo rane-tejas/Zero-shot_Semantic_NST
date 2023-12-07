@@ -15,24 +15,24 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class InferStyleTransfer:
 
-    def __init__(self):
+    def __init__(self, checkpoint_path):
 
         self.seg_mask = None
         self.style_img = None
         self.content_img = None
         self.content_shape = None
 
-        self.image_encoder = ATA_Encoder().to(DEVICE)
-        self.decoder = Decoder().to(DEVICE)
-        self.ada_attn_3 = AdaAttN(in_planes=256, key_planes=256 + 128 + 64, max_sample=64 * 64).to(DEVICE)
-        self.transformer = Transformer(in_planes=512, key_planes=512 + 256 + 128 + 64).to(DEVICE)
+        self.image_encoder = ATA_Encoder(checkpoint_path).to(DEVICE)
+        self.decoder = Decoder(checkpoint_path).to(DEVICE)
+        self.ada_attn_3 = AdaAttN(in_planes=256, key_planes=256 + 128 + 64, max_sample=64 * 64, checkpoint_path=checkpoint_path).to(DEVICE)
+        self.transformer = Transformer(in_planes=512, key_planes=512 + 256 + 128 + 64, checkpoint_path=checkpoint_path).to(DEVICE)
 
-    def build_models(self, checkpoint_path):
+    def build_models(self):
 
         # self.image_encoder.load_state_dict(torch.load(checkpoint_path+'/vgg_normalised.pth'))
-        self.transformer.load_state_dict(torch.load(checkpoint_path+'/latest_net_transformer.pth'))
-        self.decoder.load_state_dict(torch.load(checkpoint_path+'/latest_net_decoder.pth'))
-        self.ada_attn_3.load_state_dict(torch.load(checkpoint_path+'/latest_net_adaattn_3.pth'))
+        # self.transformer.load_state_dict(torch.load(checkpoint_path+'/latest_net_transformer.pth'))
+        # self.decoder.load_state_dict(torch.load(checkpoint_path+'/latest_net_decoder.pth'))
+        # self.ada_attn_3.load_state_dict(torch.load(checkpoint_path+'/latest_net_adaattn_3.pth'))
 
         self.image_encoder.eval()
         self.transformer.eval()
@@ -79,11 +79,11 @@ class InferStyleTransfer:
         #     self.style_img = resize_img(self.style_img, 512, keep_ratio)
 
 
-    def run(self, content_path, mask_path, style_path, checkpoint_path, resize=True, keep_ratio=True):
+    def run(self, content_path, mask_path, style_path, resize=True, keep_ratio=True):
 
-        # self.load_images(content_path, mask_path, style_path, resize, keep_ratio)
-        self.load_images_from_dataset(content_path, mask_path)
-        self.build_models(checkpoint_path)
+        self.load_images(content_path, mask_path, style_path, resize, keep_ratio)
+        # self.load_images_from_dataset(content_path, mask_path)
+        self.build_models()
 
         with torch.no_grad():
             style = img_to_tensor(cv2.cvtColor(padding(self.style_img, 32), cv2.COLOR_BGR2RGB)).to(DEVICE)
@@ -108,7 +108,7 @@ class InferStyleTransfer:
 
 
 if __name__ == '__main__':
-    args = setup_args()
-    result = InferStyleTransfer().run(args.content_path, args.mask_path, args.style_path, args.checkpoint_path, args.resize, args.keep_ratio)
+    args = infer_args()
+    result = InferStyleTransfer(args.checkpoint_path).run(args.content_path, args.mask_path, args.style_path, args.resize, args.keep_ratio)
     cv2.imwrite("output/result.png", result)
     # cv2.waitKey(0)

@@ -3,11 +3,11 @@ import torch.nn as nn
 
 from utils import mean_variance_norm
 
-torch.manual_seed(42)  
+torch.manual_seed(42)
 
 class AdaAttN(nn.Module):
 
-    def __init__(self, in_planes, max_sample=256 * 256, key_planes=None):
+    def __init__(self, in_planes, max_sample=256 * 256, key_planes=None, checkpoint_path=None):
         super(AdaAttN, self).__init__()
         if key_planes is None:
             key_planes = in_planes
@@ -16,6 +16,9 @@ class AdaAttN(nn.Module):
         self.h = nn.Conv2d(in_planes, in_planes, (1, 1))
         self.sm = nn.Softmax(dim=-1)
         self.max_sample = max_sample
+
+        if checkpoint_path:
+            self.load_state_dict(torch.load(checkpoint_path+'/adaattn.pth'))
 
     def forward(self, content, style, content_key, style_key):
         F = self.f(content_key)
@@ -46,13 +49,16 @@ class AdaAttN(nn.Module):
 
 class Transformer(nn.Module):
 
-    def __init__(self, in_planes, key_planes=None):
+    def __init__(self, in_planes, key_planes=None, checkpoint_path=None):
         super(Transformer, self).__init__()
         self.ada_attn_4_1 = AdaAttN(in_planes=in_planes, key_planes=key_planes)
         self.ada_attn_5_1 = AdaAttN(in_planes=in_planes, key_planes=key_planes + 512)
         self.upsample5_1 = nn.Upsample(scale_factor=2, mode='nearest')
         self.merge_conv_pad = nn.ReflectionPad2d((1, 1, 1, 1))
         self.merge_conv = nn.Conv2d(in_planes, in_planes, (3, 3))
+
+        if checkpoint_path:
+            self.load_state_dict(torch.load(checkpoint_path+'/transformer.pth'))
 
     def forward(self, content4_1, style4_1, content5_1, style5_1, content4_1_key, style4_1_key,
                 content5_1_key, style5_1_key):

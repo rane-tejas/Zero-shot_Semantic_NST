@@ -59,7 +59,7 @@ def get_key(feats, last_layer_idx, need_shallow=True):
     else:
         return mean_variance_norm(feats[last_layer_idx])
 
-def setup_args(train=False):
+def infer_args():
 
     parser = argparse.ArgumentParser()
 
@@ -69,7 +69,7 @@ def setup_args(train=False):
                         help="Path to a single mask img")
     parser.add_argument("-s", "--style_path", type=str, default="data/style/vg_starry_night.jpg",
                         help="Path to a single style img")
-    parser.add_argument("--checkpoint_path", type=str, default="ckpt",
+    parser.add_argument("--checkpoint_path", type=str, default="ckpt/pretrained",
                         help="Path to the checkpoint drectory")
     parser.add_argument("-o", "--output_dir", type=str, default='output/',
                         help="Output path")
@@ -78,9 +78,75 @@ def setup_args(train=False):
                             "of the model and may yield better performance")
     parser.add_argument("--keep_ratio", action='store_true',
                         help="Whether keep the aspect ratio of original images while resizing")
-    
-    if train:
-        # TODO: Add hyperparams
-        pass
 
     return parser.parse_args()
+
+def train_args():
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-d", "--data_path", type=str, default="dataset/PhraseCut_mod",
+                        help="Path to the dataset")
+    parser.add_argument("-c", "--checkpoint_path", type=str, default="ckpt/pretrained",
+                        help="Path to the checkpoint drectory")
+    parser.add_argument("-l", "--log_dir", type=str, default='logs/',
+                        help="Path to the log directory")
+    parser.add_argument("-p", "--log_name", type=str, default='trial_logs',
+                        help="name of the log file")
+    parser.add_argument("-b", "--batch_size", type=int, default=2,
+                        help="Batch size")
+    parser.add_argument("-e", "--num_epochs", type=int, default=20,
+                        help="Number of epochs")
+    parser.add_argument("--lr", type=float, default=1e-3,
+                        help="Learning rate")
+    parser.add_argument("--weight_decay", type=float, default=1e-5,
+                        help="Weight decay")
+
+
+    return parser.parse_args()
+
+
+class Logger:
+
+    import os
+    import matplotlib.pyplot as plt
+
+    def __init__(self, log_dir):
+        self.log_dir = log_dir
+        if not self.os.path.exists(log_dir):
+            self.os.mkdir(log_dir)
+
+        self.plot_dir = self.os.mkdir(self.os.path.join(log_dir, 'plots'))
+        self.log_file_path = self.log_dir + '/logs.txt'
+        self.log_file = open(self.log_file_path, 'a')
+
+        self.train_data = []
+        self.val_data = []
+
+    def log(self, tag, **kwargs):
+
+        if tag == 'args':
+            self.log_file.write('Training Args:\n')
+            for k, v in kwargs.items():
+                self.log_file.write(str(k)+': '+str(v)+'\n')
+            self.log_file.write('#########################################################\n')
+
+        elif tag == 'train':
+            self.train_data.append([kwargs['epoch'], kwargs['loss']])
+            self.log_file.write(f'Epoch: {kwargs["epoch"]} Train Loss: {kwargs["loss"]}\n')
+
+        elif tag == 'val':
+            self.val_data.append([kwargs['epoch'], kwargs['loss']])
+            self.log_file.write(f'Epoch: {kwargs["epoch"]} Val Loss: {kwargs["loss"]}\n')
+
+        elif tag == 'plot':
+            self.plot(self.train_data, name='Train Loss', path=self.plot_dir)
+            self.plot(self.val_data, name='Val Loss', path=self.plot_dir)
+
+    def plot(self, data, name, path):
+
+        self.plt.plot(data)
+        self.plt.xlabel('Epochs')
+        self.plt.ylabel(name)
+        self.plt.title(name+' vs. Epochs')
+        self.plt.savefig(self.os.path.join(path, name+'.png'), dpi=1200 ,bbox_inches='tight')

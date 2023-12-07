@@ -24,13 +24,10 @@ class PhraseCutDataset(Dataset):
     def __len__(self):
         return len(self.content_image_list)
 
-    def __getitem__(self,index):
+    def __getitem__(self, index):
 
         content_image_path = os.path.join(self.data_dir, "content", self.content_image_list[index])
         style_image_path = os.path.join(self.data_dir, "style", np.random.choice(self.style_image_list))
-
-        # print(content_image_path)
-        # print(style_image_path)
 
         content_img = torch.Tensor(cv2.imread(content_image_path).transpose(2, 0, 1))
         style_img = torch.Tensor(cv2.imread(style_image_path).transpose(2, 0, 1))

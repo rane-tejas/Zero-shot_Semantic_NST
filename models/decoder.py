@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 class Decoder(nn.Module):
 
-    def __init__(self):
+    def __init__(self, checkpoint_path):
         super(Decoder, self).__init__()
 
         self.decoder_layer_1 = nn.Sequential(
@@ -40,6 +40,9 @@ class Decoder(nn.Module):
             nn.ReflectionPad2d((1, 1, 1, 1)),
             nn.Conv2d(64, 3, (3, 3))
         )
+
+        if checkpoint_path:
+            self.load_state_dict(torch.load(checkpoint_path+'/decoder.pth'))
 
     def forward(self, cs, c_adain_3_feat):
         cs = self.decoder_layer_1(cs)
