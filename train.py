@@ -100,6 +100,25 @@ class TrainStyleTransfer():
 
         return loss.item()
 
+    def _infer(self, content_images, style_images):
+
+        self.encoder.eval()
+        self.transformer.eval()
+        self.decoder.eval()
+        self.ada_attn_3.eval()
+
+        content_features = self.encoder(content_images)
+        style_features = self.encoder(style_images)
+        c_adain_feat_3 = self.ada_attn_3(content_features[2], style_features[2], get_key(content_features, 2), get_key(style_features, 2))
+        cs = self.transformer(content_features[3], style_features[3], content_features[4], style_features[4],
+                            get_key(content_features, 3), get_key(style_features, 3),
+                            get_key(content_features, 4), get_key(style_features, 4))
+        cs = self.decoder(cs, c_adain_feat_3)
+        cs = tensor_to_img(cs)
+        cs = cv2.cvtColor(cs, cv2.COLOR_RGB2BGR)
+
+        return cs
+
     def train(self, dataset_path, num_epochs, batch_size):
 
         train_dataset = PhraseCutDataset(dataset_path+'/train')
@@ -155,6 +174,11 @@ class TrainStyleTransfer():
 
             if max_loss > _avg_loss:
                 print('Saving best model')
+                self._logger.log(tag='model', loss=_avg_loss)
+
+                cs = self._infer(content_images, style_images)
+                self._logger.draw(epoch, cs)
+
                 max_loss = _avg_loss
                 torch.save(self.encoder.state_dict(), self.ckpt_path+'/encoder.pth')
                 torch.save(self.ada_attn_3.state_dict(), self.ckpt_path+'/adaattn.pth')

@@ -85,7 +85,7 @@ def train_args():
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-d", "--dataset_path", type=str, default="dataset/PhraseCut_mod",
+    parser.add_argument("-d", "--dataset_path", type=str, default="dataset/PhraseCut_nano",
                         help="Path to the dataset")
     parser.add_argument("-c", "--checkpoint_path", type=str, default="ckpt/pretrained",
                         help="Path to the checkpoint drectory")
@@ -99,9 +99,10 @@ def train_args():
                         help="Number of epochs")
     parser.add_argument("--lr", type=float, default=1e-3,
                         help="Learning rate")
-    parser.add_argument("--weight_decay", type=float, default=1e-5,
+    parser.add_argument("--weight_decay", type=float, default=0.0,
                         help="Weight decay")
-
+    parser.add_argument("--msg", type=str, default="",
+                        help="Message/Description of experiment")
 
     return parser.parse_args()
 
@@ -120,22 +121,28 @@ class Logger:
         self.plot_dir = self.os.path.join(log_dir, 'plots')
         if not self.os.path.exists(self.plot_dir):
             self.os.mkdir(self.plot_dir)
+
+        self.media_dir = self.os.path.join(log_dir, 'media')
+        if not self.os.path.exists(self.media_dir):
+            self.os.mkdir(self.media_dir)
+
         self.log_file_path = self.log_dir + '/logs.txt'
         self.log_file = open(self.log_file_path, 'w')
         self.log_file.write('Logs date and time: '+self.time.strftime("%d-%m-%Y %H:%M:%S")+'\n\n')
-        self.log_file = open(self.log_file_path, 'a')
-
 
         self.train_data = []
         self.val_data = []
 
     def log(self, tag, **kwargs):
 
+        self.log_file = open(self.log_file_path, 'a')
+
         if tag == 'args':
             self.log_file.write('Training Args:\n')
             for k, v in kwargs.items():
                 self.log_file.write(str(k)+': '+str(v)+'\n')
             self.log_file.write('#########################################################\n\n')
+            self.log_file.write(f'Starting Training... \n')
 
         elif tag == 'train':
             self.train_data.append([kwargs['loss']])
@@ -145,9 +152,21 @@ class Logger:
             self.val_data.append([kwargs['loss']])
             self.log_file.write(f'Epoch: {kwargs["epoch"]} \t Val Loss: {kwargs["loss"]} \t Avg Time: {kwargs["time"]} secs\n')
 
+        elif tag == 'model':
+            self.log_file.write('#########################################################\n')
+            self.log_file.write(f'Saving best model... Val Loss: {kwargs["loss"]}\n')
+            self.log_file.write('#########################################################\n')
+
         elif tag == 'plot':
             self.plot(self.train_data, name='Train Loss', path=self.plot_dir)
             self.plot(self.val_data, name='Val Loss', path=self.plot_dir)
+            self.plot_both(self.train_data, self.val_data, name='Loss', path=self.plot_dir)
+
+        self.log_file.close()
+
+    def draw(self, epoch, img):
+
+        cv2.imwrite(self.media_dir+'/'+str(epoch)+'.png', img)
 
     def plot(self, data, name, path):
 
@@ -155,5 +174,16 @@ class Logger:
         self.plt.xlabel('Epochs')
         self.plt.ylabel(name)
         self.plt.title(name+' vs. Epochs')
+        self.plt.savefig(self.os.path.join(path, name+'.png'), dpi=1200 ,bbox_inches='tight')
+        self.plt.close()
+
+    def plot_both(self, data1, data2, name, path):
+
+        self.plt.plot(data1, label='Train Loss')
+        self.plt.plot(data2, label='Val Loss')
+        self.plt.xlabel('Epochs')
+        self.plt.ylabel(name)
+        self.plt.title(name+' vs. Epochs')
+        self.plt.legend()
         self.plt.savefig(self.os.path.join(path, name+'.png'), dpi=1200 ,bbox_inches='tight')
         self.plt.close()
