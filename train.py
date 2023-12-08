@@ -20,11 +20,12 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class TrainStyleTransfer():
 
-    def __init__(self, checkpoint_path, log_path, lr=0.001, weight_decay=0.0):
+    def __init__(self, checkpoint_path, log_path, lr=0.001, weight_decay=0.0, msg=""):
 
         self._logger = Logger(log_path)
 
         self.lr = lr
+        self.msg = msg
         self.weight_decay = weight_decay
         self.checkpoint_path = checkpoint_path
         self.ckpt_path = log_path + '/ckpt'
@@ -135,7 +136,7 @@ class TrainStyleTransfer():
 
         self._logger.log(tag='args', lr=self.lr, weight_decay=self.weight_decay,
                          dataset_path=dataset_path, checkpoint_path=self.checkpoint_path, num_epochs=num_epochs, batch_size=batch_size,
-                         total_train_images=(_train_batches*batch_size), total_val_images=(_val_batches*batch_size))
+                         total_train_images=(_train_batches*batch_size), total_val_images=(_val_batches*batch_size), message=self.msg)
 
         print('Starting training...')
 
@@ -194,5 +195,5 @@ if __name__=="__main__":
 
     args = train_args()
 
-    train_instance = TrainStyleTransfer(args.checkpoint_path, args.log_dir+args.log_name, args.lr, args.weight_decay)
+    train_instance = TrainStyleTransfer(args.checkpoint_path, args.log_dir+args.log_name, args.lr, args.weight_decay, args.msg)
     train_instance.train(args.dataset_path, args.num_epochs, args.batch_size)

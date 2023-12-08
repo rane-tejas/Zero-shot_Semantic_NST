@@ -7,6 +7,8 @@ from natsort import natsorted
 from torchvision import transforms
 from torch.utils.data import Dataset
 
+from utils import *
+
 np.random.seed(42)
 torch.manual_seed(42)
 
@@ -29,9 +31,12 @@ class PhraseCutDataset(Dataset):
         content_image_path = os.path.join(self.data_dir, "content", self.content_image_list[index])
         style_image_path = os.path.join(self.data_dir, "style", np.random.choice(self.style_image_list))
 
-        content_img = torch.Tensor(cv2.imread(content_image_path).transpose(2, 0, 1))
-        style_img = torch.Tensor(cv2.imread(style_image_path).transpose(2, 0, 1))
-        content_shape = content_img.shape[1:]
+        _content_img = cv2.imread(content_image_path)
+        _style_img = cv2.imread(style_image_path)
+
+        content_img = img_to_tensor(cv2.cvtColor(padding(_content_img, 32), cv2.COLOR_BGR2RGB)).squeeze(0)
+        style_img = img_to_tensor(cv2.cvtColor(padding(_style_img, 32), cv2.COLOR_BGR2RGB)).squeeze(0)
+        content_shape = _content_img.shape
 
         content_img = self.resize(content_img)
         style_img = self.resize(style_img)
