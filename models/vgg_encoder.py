@@ -85,9 +85,9 @@ class Encoder(nn.Module):
 # The state dict from the original code uses this messed up structure
 ######################################
 
-class Encoder(nn.Module):
-    def __init__(self):
-        super(Encoder, self).__init__()
+class ATA_Encoder(nn.Module):
+    def __init__(self, checkpoint_path=None):
+        super(ATA_Encoder, self).__init__()
 
         self.model = nn.Sequential(
             nn.Conv2d(3, 3, (1, 1)),
@@ -145,8 +145,10 @@ class Encoder(nn.Module):
             nn.ReLU()  # relu5-4
         )
 
+        if checkpoint_path:
+            self.model.load_state_dict(torch.load(checkpoint_path+'/encoder.pth'))
+
     def forward(self, x):
-        self.model.load_state_dict(torch.load('ckpt/vgg_normalised.pth'))
 
         enc_layers = list(self.model.children())
         enc_1 = nn.Sequential(*enc_layers[:4])

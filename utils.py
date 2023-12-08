@@ -48,25 +48,28 @@ def mean_variance_norm(feat):
     normalized_feat = (feat - mean.expand(size)) / std.expand(size)
     return normalized_feat
 
-def get_key(feats, last_layer_idx):
-    results = []
-    _, _, h, w = feats[last_layer_idx].shape
-    for i in range(last_layer_idx):
-        results.append(mean_variance_norm(nn.functional.interpolate(feats[i], (h, w))))
-    results.append(mean_variance_norm(feats[last_layer_idx]))
-    return torch.cat(results, dim=1)
+def get_key(feats, last_layer_idx, need_shallow=True):
+    if need_shallow and last_layer_idx > 0:
+        results = []
+        _, _, h, w = feats[last_layer_idx].shape
+        for i in range(last_layer_idx):
+            results.append(mean_variance_norm(nn.functional.interpolate(feats[i], (h, w))))
+        results.append(mean_variance_norm(feats[last_layer_idx]))
+        return torch.cat(results, dim=1)
+    else:
+        return mean_variance_norm(feats[last_layer_idx])
 
-def setup_args():
+def infer_args():
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-c", "--content_path", type=str, default="data/content/c1.jpg",
                         help="Path to a single content img")
-    parser.add_argument("-m", "--mask_path", type=str, default="",
+    parser.add_argument("-m", "--mask_path", type=str, default=None,
                         help="Path to a single mask img")
     parser.add_argument("-s", "--style_path", type=str, default="data/style/vg_starry_night.jpg",
                         help="Path to a single style img")
-    parser.add_argument("--checkpoint_path", type=str, default="ckpt",
+    parser.add_argument("--checkpoint_path", type=str, default="ckpt/pretrained",
                         help="Path to the checkpoint drectory")
     parser.add_argument("-o", "--output_dir", type=str, default='output/',
                         help="Output path")
@@ -77,3 +80,110 @@ def setup_args():
                         help="Whether keep the aspect ratio of original images while resizing")
 
     return parser.parse_args()
+
+def train_args():
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-d", "--dataset_path", type=str, default="dataset/PhraseCut_nano",
+                        help="Path to the dataset")
+    parser.add_argument("-c", "--checkpoint_path", type=str, default="ckpt/pretrained",
+                        help="Path to the checkpoint drectory")
+    parser.add_argument("-l", "--log_dir", type=str, default='logs/',
+                        help="Path to the log directory")
+    parser.add_argument("-p", "--log_name", type=str, default='trial_logs',
+                        help="name of the log file")
+    parser.add_argument("-b", "--batch_size", type=int, default=2,
+                        help="Batch size")
+    parser.add_argument("-e", "--num_epochs", type=int, default=20,
+                        help="Number of epochs")
+    parser.add_argument("--lr", type=float, default=0.0001,
+                        help="Learning rate")
+    parser.add_argument("--weight_decay", type=float, default=0.0,
+                        help="Weight decay")
+    parser.add_argument("--msg", type=str, default="",
+                        help="Message/Description of experiment")
+
+    return parser.parse_args()
+
+
+class Logger:
+
+    import os
+    import time
+    import matplotlib.pyplot as plt
+
+    def __init__(self, log_dir):
+        self.log_dir = log_dir
+        if not self.os.path.exists(log_dir):
+            self.os.makedirs(log_dir)
+
+        self.plot_dir = self.os.path.join(log_dir, 'plots')
+        if not self.os.path.exists(self.plot_dir):
+            self.os.mkdir(self.plot_dir)
+
+        self.media_dir = self.os.path.join(log_dir, 'media')
+        if not self.os.path.exists(self.media_dir):
+            self.os.mkdir(self.media_dir)
+
+        self.log_file_path = self.log_dir + '/logs.txt'
+        self.log_file = open(self.log_file_path, 'w')
+        self.log_file.write('Logs date and time: '+self.time.strftime("%d-%m-%Y %H:%M:%S")+'\n\n')
+
+        self.train_data = []
+        self.val_data = []
+
+    def log(self, tag, **kwargs):
+
+        self.log_file = open(self.log_file_path, 'a')
+
+        if tag == 'args':
+            self.log_file.write('Training Args:\n')
+            for k, v in kwargs.items():
+                self.log_file.write(str(k)+': '+str(v)+'\n')
+            self.log_file.write('#########################################################\n\n')
+            self.log_file.write(f'Starting Training... \n')
+
+        elif tag == 'train':
+            self.train_data.append([kwargs['loss']])
+            self.log_file.write(f'Epoch: {kwargs["epoch"]} \t Train Loss: {kwargs["loss"]} \t Avg Time: {kwargs["time"]} secs\n')
+
+        elif tag == 'val':
+            self.val_data.append([kwargs['loss']])
+            self.log_file.write(f'Epoch: {kwargs["epoch"]} \t Val Loss: {kwargs["loss"]} \t Avg Time: {kwargs["time"]} secs\n')
+
+        elif tag == 'model':
+            self.log_file.write('#########################################################\n')
+            self.log_file.write(f'Saving best model... Val Loss: {kwargs["loss"]}\n')
+            self.log_file.write('#########################################################\n')
+
+        elif tag == 'plot':
+            self.plot(self.train_data, name='Train Loss', path=self.plot_dir)
+            self.plot(self.val_data, name='Val Loss', path=self.plot_dir)
+            self.plot_both(self.train_data, self.val_data, name='Loss', path=self.plot_dir)
+
+        self.log_file.close()
+
+    def draw(self, epoch, img):
+
+        cv2.imwrite(self.media_dir+'/'+str(epoch)+'.png', img)
+
+    def plot(self, data, name, path):
+
+        self.plt.plot(data)
+        self.plt.xlabel('Epochs')
+        self.plt.ylabel(name)
+        self.plt.title(name+' vs. Epochs')
+        self.plt.savefig(self.os.path.join(path, name+'.png'), dpi=1200 ,bbox_inches='tight')
+        self.plt.close()
+
+    def plot_both(self, data1, data2, name, path):
+
+        self.plt.plot(data1, label='Train Loss')
+        self.plt.plot(data2, label='Val Loss')
+        self.plt.xlabel('Epochs')
+        self.plt.ylabel(name)
+        self.plt.title(name+' vs. Epochs')
+        self.plt.legend()
+        self.plt.savefig(self.os.path.join(path, name+'.png'), dpi=1200 ,bbox_inches='tight')
+        self.plt.close()
