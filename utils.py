@@ -4,6 +4,7 @@ import numpy as np
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 def infer_args():
@@ -269,14 +270,51 @@ def mean_variance_norm(features):
     normalized_features = (features - expanded_mean) / expanded_std
     return normalized_features
 
-def get_key(feats, last_layer_idx, need_shallow=True):
-    if need_shallow and last_layer_idx > 0:
-        results = []
-        _, _, h, w = feats[last_layer_idx].shape
-        for i in range(last_layer_idx):
-            results.append(mean_variance_norm(nn.functional.interpolate(feats[i], (h, w))))
-        results.append(mean_variance_norm(feats[last_layer_idx]))
-        return torch.cat(results, dim=1)
+def get_key(features, last_layer_index, need_shallow=True):
+    """
+    The features is a collection of feature maps from different layers of the final encoder network
+
+    This function calculates the normalized features for the entirity of layers if the need_shallow is True.
+    Else it just returns the normalized tensor for the last layer of the model.
+    """
+
+    # If need_shallow is True, we extract features from shallower layers of the network.
+    if need_shallow and last_layer_index > 0:
+
+        # Initialize the list to store the different layers of the final encoder 
+        tensors = []
+        # Recording the Height, width of the final layer embedding of the VGG Encoder 
+        _, _, height, width = features[last_layer_index].shape
+
+
+        # Loop over the different layers of the encoder until the last_layer_index given to this function
+        for idx in range(last_layer_index):
+            # Interpolate the features so that the feature dimensions would be height and width, the same dimension of the
+            #final encoder layer.
+            temp_features = F.interpolate(features[idx],(height,width))
+            #Normalize the Feature maps by calling the above written function
+            normalized_temp_features = mean_variance_norm(temp_features)
+            # Store this feature in the tensor list
+            tensors.append(normalized_temp_features)
+
+        # For the final layer append the normalized tensor to the tensors list. The tensors list will now have features from
+        # all layers.
+        tensors.append(mean_variance_norm(features[last_layer_index]))
+
+        # Finally concatenate the tensor in the dimension 1.
+        # Example:
+        #x=  tensor([[ 0.6580, -1.0969, -0.4614],
+        #[-0.1034, -0.5790,  0.1497]])
+        # torch.cat((x, x, x), 1)= tensor([[ 0.6580, -1.0969, -0.4614,  0.6580, -1.0969, -0.4614,  0.6580,
+        #  -1.0969, -0.4614],
+        # [-0.1034, -0.5790,  0.1497, -0.1034, -0.5790,  0.1497, -0.1034,
+        #  -0.5790,  0.1497]])
+        # Basically this will concatenate along the channel dimension, along the channel dimension , the tensor would 
+        # concatenated so that along the channel dimension there would different layers.
+
+        return torch.cat(tensors, dim=1)
     else:
-        return mean_variance_norm(feats[last_layer_idx])
+        # Else just return the normalized features from the last layer.
+        # This would not be called in this implementation. 
+        return mean_variance_norm(features[last_layer_index])
 
