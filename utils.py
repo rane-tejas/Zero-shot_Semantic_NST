@@ -168,51 +168,106 @@ def tensor_to_img(tensor):
     # (img[0].data.cpu().numpy().transpose((1, 2, 0)).clip(0, 1) * 255 + 0.5).astype(np.uint8)
     return img
 
-def resize_img(img, long_side=512, keep_ratio=True):
+def padding(image, factor=32):
+    """
+    Helper function to pad a particular image by some factor
+    We calculate the padding in each dimension by factor related calculations.
+    Padding in height can be maximum- factor. It can be a minimum of 0.
+    Essentially, it is calculating padding so that it would be minimum padding required to make the height divisible by factor.
+    Same for width.
+    """
+    height, width = image.shape[0], image.shape[1]
+
+    ## Calculates the padding in height and width
+    padding_height = (factor - height % factor) % factor
+    padding_width = (factor - width % factor) % factor
+
+    ##Initialize a numpy arrays of zeros with the new Image height and width
+    new_image = np.zeros((height + padding_height, width + pad_width, image.shape[2]), dtype=image.dtype)
+
+    ## Fills in the original image into the top left corner of the new array. Rest of the pixels are 0 - padded. 
+    new_image[:height, :width, :] = image
+    return new_image
+
+def resize_img(img, long_side=512, keep_aspect_ratio=True):
     """
     Helper function for resizing images.
     If we want to keep the aspect ratio the same we resize according to the aspect ratio.
-    If the height is greater than the width, 
+    If the height is greater than the width, the height is made equal to long_side, the width is increased
+    in the same factor as the increase in height, thus width is multiplied by long_side/height.
+    Similar is for the other case when width is greater than height.
     Otherwise we directly resize the image to acheive the target dimensions
     """
 
-    if keep_ratio:
+    if keep_aspect_ratio:
         height, width = img.shape[0],img.shape[1]
         if height > width:
-            new_width = int(long_side * width / height)
+            # Height is made to be equal to long side. 
+            # The same multiplication factor is used for the width too.
             new_height = int(long_side)
+            new_width = int(long_side * width / height)
+            
             
         else:
-            new_height = int(long_side * height / width)
+            # Width is made to be equal to long side. 
+            # The same multiplication factor is used for the height too.
             new_width = int(long_side)
+            new_height = int(long_side * height / width)
             
+        
+        # Actually resizing by cv2
         return cv2.resize(img, (new_width, new_height))
     else:
+        # Actually resizing by cv2
         return cv2.resize(img, (long_side, long_side))
 
-def padding(img, factor=32):
-    h, w = img.shape[:2]
-    pad_h = (factor - h % factor) % factor
-    pad_w = (factor - w % factor) % factor
-    new_img = np.zeros((h + pad_h, w + pad_w, img.shape[2]), dtype=img.dtype)
-    new_img[:h, :w, :] = img
-    return new_img
 
-def calc_mean_std(feat, eps=1e-5):
+
+def calc_mean_std(features, eps=1e-5):
+    """
+    Function that calculates the mean and standard deviation across different channels of the tensor.
+    """
+    ## Get the feature tensors size, this tensor should be of length 4 since (N,C,H,W)
+    feature_size = features.size()
+    assert (len(feature_size) == 4)
+
+    ## Record batch and channel dimension
+    N, C = feature_size[0],feature_size[1]
+
+    # Calculates the mean by flattening the H,W dimension. We take the mean in the 3rd dimension.
+    # Reshape the output to be (N,C,1,1)
+    features_mean = features.view(N, C, -1).mean(dim=2).view(N, C, 1, 1)
+
+
+    # Calculate the variance of the tensor by flattening the H,W dimension.
     # eps is a small value added to the variance to avoid divide-by-zero.
-    size = feat.size()
-    assert (len(size) == 4)
-    N, C = size[:2]
-    feat_var = feat.view(N, C, -1).var(dim=2) + eps
-    feat_std = feat_var.sqrt().view(N, C, 1, 1)
-    feat_mean = feat.view(N, C, -1).mean(dim=2).view(N, C, 1, 1)
+    # Calculates the dimension at dimension 3
+    features_variance = features.view(N, C, -1).var(dim=2) + eps
+
+    # Calculates the standard deviation of the tensor by taking a square rooting, reshaping the result to (N,C,1,1)
+    features_std = features_variance.sqrt().view(N, C, 1, 1)
+
+    
     return feat_mean, feat_std
 
-def mean_variance_norm(feat):
-    size = feat.size()
-    mean, std = calc_mean_std(feat)
-    normalized_feat = (feat - mean.expand(size)) / std.expand(size)
-    return normalized_feat
+def mean_variance_norm(features):
+    """
+    Function that normalizes a tensor according to the mean and standard deviation
+    Calculates the mean and standard deviation. 
+    Normalizes the tensor by (feature - mean(feature)/std(feature))
+    """
+    # Get size of the features tensor
+    size = features.size()
+    # Calculate mean and standard deviation of the features vector by calling the earlier function
+    mean, std = calc_mean_std(features)
+
+    # Expand the mean tensors shape to match with the features dimension
+    expanded_mean = mean.expand(size)
+    expanded_std = std.expand(size)
+
+    # Normalize by applying the standard normalizing formula. 
+    normalized_features = (features - expanded_mean) / expanded_std
+    return normalized_features
 
 def get_key(feats, last_layer_idx, need_shallow=True):
     if need_shallow and last_layer_idx > 0:
