@@ -5,59 +5,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-def img_to_tensor(img):
-    return (torch.from_numpy(np.array(img).transpose((2, 0, 1))).float() / 255.).unsqueeze(0)
-
-def tensor_to_img(img):
-    return (img[0].data.cpu().numpy().transpose((1, 2, 0)).clip(0, 1) * 255 + 0.5).astype(np.uint8)
-
-def resize_img(img, long_side=512, keep_ratio=True):
-    if keep_ratio:
-        h, w = img.shape[:2]
-        if h < w:
-            new_h = int(long_side * h / w)
-            new_w = int(long_side)
-        else:
-            new_w = int(long_side * w / h)
-            new_h = int(long_side)
-        return cv2.resize(img, (new_w, new_h))
-    else:
-        return cv2.resize(img, (long_side, long_side))
-
-def padding(img, factor=32):
-    h, w = img.shape[:2]
-    pad_h = (factor - h % factor) % factor
-    pad_w = (factor - w % factor) % factor
-    new_img = np.zeros((h + pad_h, w + pad_w, img.shape[2]), dtype=img.dtype)
-    new_img[:h, :w, :] = img
-    return new_img
-
-def calc_mean_std(feat, eps=1e-5):
-    # eps is a small value added to the variance to avoid divide-by-zero.
-    size = feat.size()
-    assert (len(size) == 4)
-    N, C = size[:2]
-    feat_var = feat.view(N, C, -1).var(dim=2) + eps
-    feat_std = feat_var.sqrt().view(N, C, 1, 1)
-    feat_mean = feat.view(N, C, -1).mean(dim=2).view(N, C, 1, 1)
-    return feat_mean, feat_std
-
-def mean_variance_norm(feat):
-    size = feat.size()
-    mean, std = calc_mean_std(feat)
-    normalized_feat = (feat - mean.expand(size)) / std.expand(size)
-    return normalized_feat
-
-def get_key(feats, last_layer_idx, need_shallow=True):
-    if need_shallow and last_layer_idx > 0:
-        results = []
-        _, _, h, w = feats[last_layer_idx].shape
-        for i in range(last_layer_idx):
-            results.append(mean_variance_norm(nn.functional.interpolate(feats[i], (h, w))))
-        results.append(mean_variance_norm(feats[last_layer_idx]))
-        return torch.cat(results, dim=1)
-    else:
-        return mean_variance_norm(feats[last_layer_idx])
 
 def infer_args():
 
@@ -187,3 +134,94 @@ class Logger:
         self.plt.legend()
         self.plt.savefig(self.os.path.join(path, name+'.png'), dpi=1200 ,bbox_inches='tight')
         self.plt.close()
+
+def img_to_tensor(img):
+    """
+    Converts image to tensor
+    First takes in the image , converts to numpy.
+    Changes the dimensions from (H,W,C) -> (C,H,W)
+    Changes the datatype to float and then normalizes the image intensities between 0 and 1.
+    Finally, it changes the dimension by adding a dimension at the start allowing for a batch accomodation
+    """
+
+    np_array = np.array(img).transpose((2,0,1))
+    np_array = np_array.float()/255.
+    tensor = torch.from_numpy(np_array).unsqueeze(0)
+
+    # (torch.from_numpy(np.array(img).transpose((2, 0, 1))).float() / 255.).unsqueeze(0)
+    return tensor
+
+def tensor_to_img(tensor):
+    """
+    Converts tensor to image
+    Takes the tensor to cpu, converts to numpy array
+    Changes the dimensions from (C,H,W) -> (H,W,C)
+    Clips the tensor values between 0 and 1, scales values till 255, adds 0.5 to it
+    Changes datatype to integer.
+    """
+
+    img = tensor[0].data.cpu().numpy()
+    img = img.transpose((1,2,0)).clip(0,1)*255
+    img = (img + 0.5).astype(np.uint8)
+
+
+    # (img[0].data.cpu().numpy().transpose((1, 2, 0)).clip(0, 1) * 255 + 0.5).astype(np.uint8)
+    return img
+
+def resize_img(img, long_side=512, keep_ratio=True):
+    """
+    Helper function for resizing images.
+    If we want to keep the aspect ratio the same we resize according to the aspect ratio.
+    If the height is greater than the width, 
+    Otherwise we directly resize the image to acheive the target dimensions
+    """
+
+    if keep_ratio:
+        height, width = img.shape[0],img.shape[1]
+        if height > width:
+            new_width = int(long_side * width / height)
+            new_height = int(long_side)
+            
+        else:
+            new_height = int(long_side * height / width)
+            new_width = int(long_side)
+            
+        return cv2.resize(img, (new_width, new_height))
+    else:
+        return cv2.resize(img, (long_side, long_side))
+
+def padding(img, factor=32):
+    h, w = img.shape[:2]
+    pad_h = (factor - h % factor) % factor
+    pad_w = (factor - w % factor) % factor
+    new_img = np.zeros((h + pad_h, w + pad_w, img.shape[2]), dtype=img.dtype)
+    new_img[:h, :w, :] = img
+    return new_img
+
+def calc_mean_std(feat, eps=1e-5):
+    # eps is a small value added to the variance to avoid divide-by-zero.
+    size = feat.size()
+    assert (len(size) == 4)
+    N, C = size[:2]
+    feat_var = feat.view(N, C, -1).var(dim=2) + eps
+    feat_std = feat_var.sqrt().view(N, C, 1, 1)
+    feat_mean = feat.view(N, C, -1).mean(dim=2).view(N, C, 1, 1)
+    return feat_mean, feat_std
+
+def mean_variance_norm(feat):
+    size = feat.size()
+    mean, std = calc_mean_std(feat)
+    normalized_feat = (feat - mean.expand(size)) / std.expand(size)
+    return normalized_feat
+
+def get_key(feats, last_layer_idx, need_shallow=True):
+    if need_shallow and last_layer_idx > 0:
+        results = []
+        _, _, h, w = feats[last_layer_idx].shape
+        for i in range(last_layer_idx):
+            results.append(mean_variance_norm(nn.functional.interpolate(feats[i], (h, w))))
+        results.append(mean_variance_norm(feats[last_layer_idx]))
+        return torch.cat(results, dim=1)
+    else:
+        return mean_variance_norm(feats[last_layer_idx])
+
