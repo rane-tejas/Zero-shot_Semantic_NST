@@ -33,8 +33,20 @@ class LossFunctions:
                 s_feats_mean, s_feats_std = calc_mean_std(style_feats[i])
                 stylized_feats_mean, stylized_feats_std = calc_mean_std(stylized_feats[i])
 
-                skewness_value_style = skew(style_feats[i].detach.cpu().numpy().flatten())
-                skewness_value_stylized = skew(stylized_feats[i].detach.cpu().numpy().flatten())
+                skewness_value_style = skew(style_feats[i].detach().cpu().numpy().flatten())
+                skewness_value_stylized = skew(stylized_feats[i].detach().cpu().numpy().flatten())
+
+                skewness_value_style = torch.tensor(skewness_value_style,device=DEVICE,requires_grad=True)
+                skewness_value_stylized = torch.tensor(skewness_value_stylized,device=DEVICE)
+
+                # print(skewness_value_style)
+                # print(skewness_value_stylized)
+                # print(stylized_feats_std.shape)
+
+                # print(self.criterion(
+                #     stylized_feats_mean, s_feats_mean))
+
+                
 
                 loss_global += self.criterion(
                     stylized_feats_mean, s_feats_mean) + self.criterion(stylized_feats_std, s_feats_std) + self.criterion(skewness_value_style,skewness_value_stylized)
