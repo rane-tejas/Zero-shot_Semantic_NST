@@ -65,7 +65,7 @@ class Transformer(nn.Module):
 
         
         return self.merge_conv(self.merge_conv_pad(
-            self.upsample5_1(self.ada_attn_5_1(content5_1, style5_1, content5_1_key, style5_1_key))))
+            self.ada_attn_4_1(content4_1, style4_1, content4_1_key, style4_1_key)))
         
         # return self.merge_conv(self.merge_conv_pad(
         #     self.ada_attn_4_1(content4_1, style4_1, content4_1_key, style4_1_key) +
