@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from scipy.stats import skew, kurtosis
 
 from utils import *
 
@@ -31,8 +32,12 @@ class LossFunctions:
             for i in range(1, 5):
                 s_feats_mean, s_feats_std = calc_mean_std(style_feats[i])
                 stylized_feats_mean, stylized_feats_std = calc_mean_std(stylized_feats[i])
+
+                skewness_value_style = skew(style_feats[i].detach.cpu().numpy().flatten())
+                skewness_value_stylized = skew(stylized_feats[i].detach.cpu().numpy().flatten())
+
                 loss_global += self.criterion(
-                    stylized_feats_mean, s_feats_mean) + self.criterion(stylized_feats_std, s_feats_std)
+                    stylized_feats_mean, s_feats_mean) + self.criterion(stylized_feats_std, s_feats_std) + self.criterion(skewness_value_style,skewness_value_stylized)
         loss_local = torch.tensor(0., device=DEVICE)
         if self.lambda_local > 0:
             for i in range(1, 5):
