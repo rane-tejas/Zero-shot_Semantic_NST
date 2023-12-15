@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from utils import *
 from models.decoder import Decoder
-from models.vgg_encoder import ATA_Encoder
+from models.vgg_encoder import Encoder
 from models.AdaAttN import AdaAttN, Transformer
 from datasets import PhraseCutDataset
 from losses import LossFunctions
@@ -35,7 +35,7 @@ class TrainStyleTransfer():
         self.parameters = []
         self.optimizer = None
 
-        self.encoder = ATA_Encoder(self.checkpoint_path).to(DEVICE)
+        self.encoder = Encoder(self.checkpoint_path).to(DEVICE)
         self.ada_attn_3 = AdaAttN(in_planes=256, key_planes=256 + 128 + 64, max_sample=64 * 64, checkpoint_path=self.checkpoint_path).to(DEVICE)
         self.transformer = Transformer(in_planes=512, key_planes=512 + 256 + 128 + 64, checkpoint_path=self.checkpoint_path).to(DEVICE)
         self.decoder = Decoder(self.checkpoint_path).to(DEVICE)
@@ -61,8 +61,8 @@ class TrainStyleTransfer():
         style_features = self.encoder(style_images)
         c_adain_feat_3 = self.ada_attn_3(content_features[2], style_features[2], get_key(content_features, 2), get_key(style_features, 2))
         cs = self.transformer(content_features[3], style_features[3], content_features[4], style_features[4],
-                            get_key(content_features, 3), get_key(style_features, 3),
-                            get_key(content_features, 4), get_key(style_features, 4))
+                              get_key(content_features, 3), get_key(style_features, 3),
+                              get_key(content_features, 4), get_key(style_features, 4))
         cs = self.decoder(cs, c_adain_feat_3)
 
         enc_cs = self.encoder(cs)
@@ -88,8 +88,8 @@ class TrainStyleTransfer():
         style_features = self.encoder(style_images)
         c_adain_feat_3 = self.ada_attn_3(content_features[2], style_features[2], get_key(content_features, 2), get_key(style_features, 2))
         cs = self.transformer(content_features[3], style_features[3], content_features[4], style_features[4],
-                            get_key(content_features, 3), get_key(style_features, 3),
-                            get_key(content_features, 4), get_key(style_features, 4))
+                              get_key(content_features, 3), get_key(style_features, 3),
+                              get_key(content_features, 4), get_key(style_features, 4))
         cs = self.decoder(cs, c_adain_feat_3)
 
         enc_cs = self.encoder(cs)
@@ -112,8 +112,8 @@ class TrainStyleTransfer():
         style_features = self.encoder(style_images)
         c_adain_feat_3 = self.ada_attn_3(content_features[2], style_features[2], get_key(content_features, 2), get_key(style_features, 2))
         cs = self.transformer(content_features[3], style_features[3], content_features[4], style_features[4],
-                            get_key(content_features, 3), get_key(style_features, 3),
-                            get_key(content_features, 4), get_key(style_features, 4))
+                              get_key(content_features, 3), get_key(style_features, 3),
+                              get_key(content_features, 4), get_key(style_features, 4))
         cs = self.decoder(cs, c_adain_feat_3)
         cs = tensor_to_img(cs)
         cs = cv2.cvtColor(cs, cv2.COLOR_RGB2BGR)
@@ -187,7 +187,7 @@ class TrainStyleTransfer():
                 torch.save(self.decoder.state_dict(), self.ckpt_path+'/decoder.pth')
 
             self._logger.log(tag='plot')
-        
+
         print('Training complete')
 
 
