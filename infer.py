@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from utils import *
 from datasets import PhraseCutDataset
 from models.decoder import Decoder
-from models.vgg_encoder import ATA_Encoder
+from models.vgg_encoder import Encoder
 from models.AdaAttN import AdaAttN, Transformer
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -22,17 +22,12 @@ class InferStyleTransfer:
         self.content_img = None
         self.content_shape = None
 
-        self.image_encoder = ATA_Encoder(checkpoint_path).to(DEVICE)
+        self.image_encoder = Encoder(checkpoint_path).to(DEVICE)
         self.decoder = Decoder(checkpoint_path).to(DEVICE)
         self.ada_attn_3 = AdaAttN(in_planes=256, key_planes=256 + 128 + 64, max_sample=64 * 64, checkpoint_path=checkpoint_path).to(DEVICE)
         self.transformer = Transformer(in_planes=512, key_planes=512 + 256 + 128 + 64, checkpoint_path=checkpoint_path).to(DEVICE)
 
     def build_models(self):
-
-        # self.image_encoder.load_state_dict(torch.load(checkpoint_path+'/vgg_normalised.pth'))
-        # self.transformer.load_state_dict(torch.load(checkpoint_path+'/latest_net_transformer.pth'))
-        # self.decoder.load_state_dict(torch.load(checkpoint_path+'/latest_net_decoder.pth'))
-        # self.ada_attn_3.load_state_dict(torch.load(checkpoint_path+'/latest_net_adaattn_3.pth'))
 
         self.image_encoder.eval()
         self.transformer.eval()
@@ -66,18 +61,12 @@ class InferStyleTransfer:
         test_dataloader = DataLoader(PhraseCutDataset(data_path), batch_size=1, shuffle=True)
         for batch in test_dataloader:
             self.content_img, self.style_img, self.content_shape = batch
-            # import ipdb; ipdb.set_trace()
             self.content_img = torch.permute(self.content_img.squeeze(), (1, 2, 0)).numpy()
             self.style_img = torch.permute(self.style_img.squeeze(), (1, 2, 0)).numpy()
             break
 
         if mask_path:
             self.seg_mask = cv2.imread(mask_path)//255
-
-        # if resize:
-        #     self.content_img = resize_img(self.content_img, 512, keep_ratio)
-        #     self.style_img = resize_img(self.style_img, 512, keep_ratio)
-
 
     def run(self, content_path, mask_path, style_path, resize=True, keep_ratio=True):
 
@@ -110,5 +99,4 @@ class InferStyleTransfer:
 if __name__ == '__main__':
     args = infer_args()
     result = InferStyleTransfer(args.checkpoint_path).run(args.content_path, args.mask_path, args.style_path, args.resize, args.keep_ratio)
-    cv2.imwrite("output/result.png", result)
-    # cv2.waitKey(0)
+    cv2.imwrite("output/"+args.output_name+".png", result)
