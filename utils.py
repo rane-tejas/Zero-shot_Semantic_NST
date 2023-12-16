@@ -19,8 +19,8 @@ def infer_args():
                         help="Path to a single style img")
     parser.add_argument("--checkpoint_path", type=str, default="ckpt/pretrained",
                         help="Path to the checkpoint drectory")
-    parser.add_argument("-o", "--output_dir", type=str, default='output/',
-                        help="Output path")
+    parser.add_argument("-o", "--output_name", type=str, default='result',
+                        help="Output file name")
     parser.add_argument("--resize", action='store_true',
                         help="Whether resize images to the 512 scale, which is the training resolution "
                             "of the model and may yield better performance")
@@ -149,7 +149,6 @@ def img_to_tensor(img):
     np_array = np_array.float()/255.
     tensor = torch.from_numpy(np_array).unsqueeze(0)
 
-    # (torch.from_numpy(np.array(img).transpose((2, 0, 1))).float() / 255.).unsqueeze(0)
     return tensor
 
 def tensor_to_img(tensor):
@@ -165,8 +164,6 @@ def tensor_to_img(tensor):
     img = img.transpose((1,2,0)).clip(0,1)*255
     img = (img + 0.5).astype(np.uint8)
 
-
-    # (img[0].data.cpu().numpy().transpose((1, 2, 0)).clip(0, 1) * 255 + 0.5).astype(np.uint8)
     return img
 
 def padding(image, factor=32):
@@ -179,14 +176,14 @@ def padding(image, factor=32):
     """
     height, width = image.shape[0], image.shape[1]
 
-    ## Calculates the padding in height and width
+    # Calculates the padding in height and width
     padding_height = (factor - height % factor) % factor
     padding_width = (factor - width % factor) % factor
 
-    ##Initialize a numpy arrays of zeros with the new Image height and width
-    new_image = np.zeros((height + padding_height, width + pad_width, image.shape[2]), dtype=image.dtype)
+    # Initialize a numpy arrays of zeros with the new Image height and width
+    new_image = np.zeros((height + padding_height, width + padding_width, image.shape[2]), dtype=image.dtype)
 
-    ## Fills in the original image into the top left corner of the new array. Rest of the pixels are 0 - padded. 
+    # Fills in the original image into the top left corner of the new array. Rest of the pixels are 0 - padded.
     new_image[:height, :width, :] = image
     return new_image
 
@@ -203,19 +200,17 @@ def resize_img(img, long_side=512, keep_aspect_ratio=True):
     if keep_aspect_ratio:
         height, width = img.shape[0],img.shape[1]
         if height > width:
-            # Height is made to be equal to long side. 
+            # Height is made to be equal to long side.
             # The same multiplication factor is used for the width too.
             new_height = int(long_side)
             new_width = int(long_side * width / height)
-            
-            
+
         else:
-            # Width is made to be equal to long side. 
+            # Width is made to be equal to long side.
             # The same multiplication factor is used for the height too.
             new_width = int(long_side)
             new_height = int(long_side * height / width)
-            
-        
+
         # Actually resizing by cv2
         return cv2.resize(img, (new_width, new_height))
     else:
@@ -228,33 +223,31 @@ def calc_mean_std(features, eps=1e-5):
     """
     Function that calculates the mean and standard deviation across different channels of the tensor.
     """
-    ## Get the feature tensors size, this tensor should be of length 4 since (N,C,H,W)
+    # Get the feature tensors size, this tensor should be of length 4 since (N,C,H,W)
     feature_size = features.size()
     assert (len(feature_size) == 4)
 
-    ## Record batch and channel dimension
+    # Record batch and channel dimension
     N, C = feature_size[0],feature_size[1]
 
     # Calculates the mean by flattening the H,W dimension. We take the mean in the 3rd dimension.
     # Reshape the output to be (N,C,1,1)
     features_mean = features.view(N, C, -1).mean(dim=2).view(N, C, 1, 1)
 
-
     # Calculate the variance of the tensor by flattening the H,W dimension.
     # eps is a small value added to the variance to avoid divide-by-zero.
     # Calculates the dimension at dimension 3
     features_variance = features.view(N, C, -1).var(dim=2) + eps
 
-    # Calculates the standard deviation of the tensor by taking a square rooting, reshaping the result to (N,C,1,1)
+    # Calculates the standard deviation of the tensor by taking a squareroot, reshaping the result to (N,C,1,1)
     features_std = features_variance.sqrt().view(N, C, 1, 1)
 
-    
-    return feat_mean, feat_std
+    return features_mean, features_std
 
 def mean_variance_norm(features):
     """
     Function that normalizes a tensor according to the mean and standard deviation
-    Calculates the mean and standard deviation. 
+    Calculates the mean and standard deviation.
     Normalizes the tensor by (feature - mean(feature)/std(feature))
     """
     # Get size of the features tensor
@@ -266,7 +259,7 @@ def mean_variance_norm(features):
     expanded_mean = mean.expand(size)
     expanded_std = std.expand(size)
 
-    # Normalize by applying the standard normalizing formula. 
+    # Normalize by applying the standard normalizing formula.
     normalized_features = (features - expanded_mean) / expanded_std
     return normalized_features
 
@@ -281,11 +274,10 @@ def get_key(features, last_layer_index, need_shallow=True):
     # If need_shallow is True, we extract features from shallower layers of the network.
     if need_shallow and last_layer_index > 0:
 
-        # Initialize the list to store the different layers of the final encoder 
+        # Initialize the list to store the different layers of the final encoder
         tensors = []
-        # Recording the Height, width of the final layer embedding of the VGG Encoder 
+        # Recording the Height, width of the final layer embedding of the VGG Encoder
         _, _, height, width = features[last_layer_index].shape
-
 
         # Loop over the different layers of the encoder until the last_layer_index given to this function
         for idx in range(last_layer_index):
@@ -309,12 +301,12 @@ def get_key(features, last_layer_index, need_shallow=True):
         #  -1.0969, -0.4614],
         # [-0.1034, -0.5790,  0.1497, -0.1034, -0.5790,  0.1497, -0.1034,
         #  -0.5790,  0.1497]])
-        # Basically this will concatenate along the channel dimension, along the channel dimension , the tensor would 
+        # Basically this will concatenate along the channel dimension, along the channel dimension , the tensor would
         # concatenated so that along the channel dimension there would different layers.
 
         return torch.cat(tensors, dim=1)
     else:
         # Else just return the normalized features from the last layer.
-        # This would not be called in this implementation. 
+        # This would not be called in this implementation.
         return mean_variance_norm(features[last_layer_index])
 

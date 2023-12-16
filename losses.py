@@ -64,8 +64,6 @@ class LossFunctions:
                 # Add the absolute difference in mean and standard deviation to the global loss
                 loss_global += self.criterion(
                     stylized_feats_mean, style_feats_mean) + self.criterion(stylized_feats_std, style_feats_std)
-
-        
         loss_local = torch.tensor(0., device=DEVICE)
         if self.lambda_local > 0:
             for i in range(1, 5):
