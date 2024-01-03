@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 
 def infer_args():
+    """ Arguments for inference"""
 
     parser = argparse.ArgumentParser()
 
@@ -30,6 +31,7 @@ def infer_args():
     return parser.parse_args()
 
 def train_args():
+    """ Arguments for training"""
 
     parser = argparse.ArgumentParser()
 
@@ -49,6 +51,12 @@ def train_args():
                         help="Learning rate")
     parser.add_argument("--weight_decay", type=float, default=0.0,
                         help="Weight decay")
+    parser.add_argument("--lc", type=float, default=1.0,
+                        help="Lambda Content (weightage for content loss)")
+    parser.add_argument("--lg", type=float, default=1.0,
+                        help="Lambda Global (weightage for global loss)")
+    parser.add_argument("--ll", type=float, default=1.0,
+                        help="Lambda Local (weightage for local loss)")
     parser.add_argument("--msg", type=str, default="",
                         help="Message/Description of experiment")
 
@@ -56,6 +64,26 @@ def train_args():
 
 
 class Logger:
+    """ Class to log the training process
+
+    Args:
+        log_dir (str): path to the log directory
+
+    Attributes:
+        log_dir (str): path to the log directory
+        plot_dir (str): path to the plot directory
+        media_dir (str): path to the media directory
+        log_file_path (str): path to the log file
+        log_file (file): log file
+        train_data (list): list of training data
+        val_data (list): list of validation data
+
+    Methods:
+        log(tag, **kwargs): log the data
+        plot(data, name, path): plot the data
+        plot_both(data1, data2, name, path): plot the data
+        draw(epoch, img): draw the image
+    """
 
     import os
     import time
@@ -82,6 +110,12 @@ class Logger:
         self.val_data = []
 
     def log(self, tag, **kwargs):
+        """ Log the data
+
+        Args:
+            tag (str): tag for the data
+            **kwargs: data
+        """
 
         self.log_file = open(self.log_file_path, 'a')
 
@@ -113,10 +147,23 @@ class Logger:
         self.log_file.close()
 
     def draw(self, epoch, img):
+        """ Draw the image
+
+        Args:
+            epoch (int): epoch
+            img (np.ndarray): image
+        """
 
         cv2.imwrite(self.media_dir+'/'+str(epoch)+'.png', img)
 
     def plot(self, data, name, path):
+        """ Plot the data
+
+        Args:
+            data (list): data
+            name (str): name of the data
+            path (str): path to the plot
+        """
 
         self.plt.plot(data)
         self.plt.xlabel('Epochs')
@@ -126,6 +173,14 @@ class Logger:
         self.plt.close()
 
     def plot_both(self, data1, data2, name, path):
+        """ Plot data1 and data2 in the same plot
+
+        Args:
+            data1 (list): data1
+            data2 (list): data2
+            name (str): name of the data
+            path (str): path to the plot
+        """
 
         self.plt.plot(data1, label='Train Loss')
         self.plt.plot(data2, label='Val Loss')

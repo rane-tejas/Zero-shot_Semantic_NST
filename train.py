@@ -19,12 +19,24 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class TrainStyleTransfer():
+    """ Class to train the style transfer model
 
-    def __init__(self, checkpoint_path, log_path, lr=0.001, weight_decay=0.0, msg=""):
+    Args:
+        checkpoint_path (str): path to the checkpoint
+        log_path (str): path to the log
+        lr (float): learning rate
+        weight_decay (float): weight decay
+        msg (str): message to be logged
+    """
+
+    def __init__(self, checkpoint_path, log_path, lr=0.001, weight_decay=0.0, msg="", lc=1.0, lg=1.0, ll=1.0):
 
         self._logger = Logger(log_path)
 
         self.lr = lr
+        self.lg = lg
+        self.ll = ll
+        self.lc = lc
         self.msg = msg
         self.weight_decay = weight_decay
         self.checkpoint_path = checkpoint_path
@@ -39,11 +51,12 @@ class TrainStyleTransfer():
         self.ada_attn_3 = AdaAttN(in_planes=256, key_planes=256 + 128 + 64, max_sample=64 * 64, checkpoint_path=self.checkpoint_path).to(DEVICE)
         self.transformer = Transformer(in_planes=512, key_planes=512 + 256 + 128 + 64, checkpoint_path=self.checkpoint_path).to(DEVICE)
         self.decoder = Decoder(self.checkpoint_path).to(DEVICE)
-        self.loss = LossFunctions()
+        self.loss = LossFunctions(lambda_content=self.lc, lambda_global=self.lg, lambda_local=self.ll)
 
         self._build_models()
 
     def _build_models(self):
+        """ Build the models and freeze the encoder """
 
         # Freeze encoder
         for p in self.encoder.parameters():
@@ -54,6 +67,15 @@ class TrainStyleTransfer():
         self.parameters.extend(list(self.decoder.parameters()))
 
     def _train_epoch(self, content_images, style_images):
+        """ Train the model for one epoch.
+
+        Args:
+            content_images (torch.Tensor): content images
+            style_images (torch.Tensor): style images
+
+        Returns:
+            float: loss
+        """
 
         self.optimizer.zero_grad()
 
@@ -78,6 +100,15 @@ class TrainStyleTransfer():
         return loss.item()
 
     def _val_epoch(self, content_images, style_images):
+        """ Validate the model for one epoch.
+
+        Args:
+            content_images (torch.Tensor): content images
+            style_images (torch.Tensor): style images
+
+        Returns:
+            float: loss
+        """
 
         self.encoder.eval()
         self.transformer.eval()
@@ -101,12 +132,29 @@ class TrainStyleTransfer():
 
         return loss.item()
 
-    def _infer(self, content_images, style_images):
+    def _infer(self, content_images=None, style_images=None):
+        """ Infer the model for one epoch.
+
+        Args:
+            content_images (torch.Tensor): content images
+            style_images (torch.Tensor): style images
+
+        Returns:
+            cs (torch.Tensor): stylized images
+        """
 
         self.encoder.eval()
         self.transformer.eval()
         self.decoder.eval()
         self.ada_attn_3.eval()
+
+        if content_images == None:
+            _content_img = cv2.imread("data/content/c1.jpg")
+            _style_img = cv2.imread("data/style/vg_starry_night.jpg")
+            content_img = resize_img(_content_img, 512, keep_ratio=False)
+            style_img = resize_img(_style_img, 512, keep_ratio=False)
+            content_images = img_to_tensor(cv2.cvtColor(padding(content_img, 32), cv2.COLOR_BGR2RGB)).to(DEVICE)
+            style_images = img_to_tensor(cv2.cvtColor(padding(style_img, 32), cv2.COLOR_BGR2RGB)).to(DEVICE)
 
         content_features = self.encoder(content_images)
         style_features = self.encoder(style_images)
@@ -121,6 +169,13 @@ class TrainStyleTransfer():
         return cs
 
     def train(self, dataset_path, num_epochs, batch_size):
+        """ Train the model.
+
+        Args:
+            dataset_path (str): path to the dataset
+            num_epochs (int): number of epochs
+            batch_size (int): batch size
+        """
 
         train_dataset = PhraseCutDataset(dataset_path+'/train')
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -136,7 +191,8 @@ class TrainStyleTransfer():
 
         self._logger.log(tag='args', lr=self.lr, weight_decay=self.weight_decay,
                          dataset_path=dataset_path, checkpoint_path=self.checkpoint_path, num_epochs=num_epochs, batch_size=batch_size,
-                         total_train_images=(_train_batches*batch_size), total_val_images=(_val_batches*batch_size), message=self.msg)
+                         total_train_images=(_train_batches*batch_size), total_val_images=(_val_batches*batch_size), message=self.msg,
+                         lambda_content=self.lc, lambda_global=self.lg, lambda_local=self.ll)
 
         print('Starting training...')
 
@@ -187,6 +243,9 @@ class TrainStyleTransfer():
                 torch.save(self.decoder.state_dict(), self.ckpt_path+'/decoder.pth')
 
             self._logger.log(tag='plot')
+            if epoch % 5 == 0:
+                cs = self._infer()
+                self._logger.draw(epoch, cs)
 
         print('Training complete')
 
@@ -195,5 +254,6 @@ if __name__=="__main__":
 
     args = train_args()
 
-    train_instance = TrainStyleTransfer(args.checkpoint_path, args.log_dir+args.log_name, args.lr, args.weight_decay, args.msg)
+    train_instance = TrainStyleTransfer(args.checkpoint_path, args.log_dir+args.log_name, args.lr, args.weight_decay, args.msg,
+                                        args.lc, args.lg, args.ll)
     train_instance.train(args.dataset_path, args.num_epochs, args.batch_size)
