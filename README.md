@@ -26,3 +26,7 @@ Example:
 ```bash
 python clipseg_infer.py --content_path data/content/parked_car.jpg --style_path data/style/candy.jpg --prompts "car"
 ```
+![image](https://github.com/rane-tejas/Zero-shot_Semantic_NST/assets/55713396/1036acff-bcf6-4431-a2d9-9acba2d77e99)
+
+A demo of the approach on a chair in the Unity Hall at WPI. 
+The style images are towards the bottom left corner of the resultant images.
